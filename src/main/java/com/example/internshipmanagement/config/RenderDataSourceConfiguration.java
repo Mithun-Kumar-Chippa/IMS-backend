@@ -28,14 +28,21 @@ public class RenderDataSourceConfiguration {
         String scheme = databaseUri.getScheme();
         String rawUserInfo = databaseUri.getRawUserInfo();
         String rawPath = databaseUri.getRawPath();
-        if ((!("postgres".equals(scheme) || "postgresql".equals(scheme)))
-                || databaseUri.getHost() == null
-                || databaseUri.getPort() < 1
-                || rawUserInfo == null
-                || !rawUserInfo.contains(":")
-                || rawPath == null
-                || rawPath.length() < 2) {
-            throw new IllegalStateException("DATABASE_URL must contain PostgreSQL credentials, host, port, and database.");
+        int port = databaseUri.getPort() == -1 ? 5432 : databaseUri.getPort();
+        if (!("postgres".equals(scheme) || "postgresql".equals(scheme))) {
+            throw new IllegalStateException("DATABASE_URL must use the postgres:// or postgresql:// scheme.");
+        }
+        if (databaseUri.getHost() == null) {
+            throw new IllegalStateException("DATABASE_URL is missing the PostgreSQL host.");
+        }
+        if (port < 1 || port > 65535) {
+            throw new IllegalStateException("DATABASE_URL contains an invalid PostgreSQL port.");
+        }
+        if (rawUserInfo == null || !rawUserInfo.contains(":")) {
+            throw new IllegalStateException("DATABASE_URL must include both PostgreSQL username and password.");
+        }
+        if (rawPath == null || rawPath.length() < 2) {
+            throw new IllegalStateException("DATABASE_URL is missing the PostgreSQL database name.");
         }
 
         String[] credentials = rawUserInfo.split(":", 2);
@@ -44,7 +51,7 @@ public class RenderDataSourceConfiguration {
             host = "[" + host + "]";
         }
 
-        String jdbcUrl = "jdbc:postgresql://" + host + ":" + databaseUri.getPort() + rawPath.substring(0);
+        String jdbcUrl = "jdbc:postgresql://" + host + ":" + port + rawPath;
         if (databaseUri.getRawQuery() != null) {
             jdbcUrl += "?" + databaseUri.getRawQuery();
         }
